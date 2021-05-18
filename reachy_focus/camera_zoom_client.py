@@ -10,6 +10,7 @@ from pynput import keyboard
 from sensor_msgs.msg._compressed_image import CompressedImage
 from reachy_msgs.srv import SetCameraFocusZoom, GetCameraFocusZoom, SetCameraZoomLevel
 from reachy_msgs.srv import Set2CamerasZoom, Set2CamerasZoomLevel
+from reachy_msgs.srv import SendRestartRequest
 
 
 class CameraZoomClient(Node):
@@ -27,6 +28,12 @@ class CameraZoomClient(Node):
         while not self.set_2_cameras_zoom_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('service not available, waiting again...')
         self.req_2_cam = Set2CamerasZoomLevel.Request()
+
+        self.restart_client = self.create_client(SendRestartRequest,
+            'send_restart_request')
+        while not self.restart_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('service not available, waiting again...')
+        self.req_restart = SendRestartRequest.Request()
 
         self.zoom = 'inter'
 
@@ -49,14 +56,19 @@ class CameraZoomClient(Node):
                 self.zoom = 'inter'
             elif self.zoom == 'inter':
                 self.zoom = 'in'
-        
+            self.send_request_2_cam(self.zoom,self.zoom)
+
         if str(key) == "Key.down":
             if self.zoom == 'in':
-                self.zoom = 'inter' 
+                self.zoom = 'inter'
             elif self.zoom == 'inter':
                 self.zoom = 'out'
+            self.send_request_2_cam(self.zoom,self.zoom)
 
-        self.send_request_2_cam(self.zoom,self.zoom)
+        if str(key) == "'r'":
+            self.restart_client.call_async(self.req_restart)
+
+
         # self.send_request('left_eye',self.zoom)
         # self.test_response(self.future)
         # self.send_request('right_eye',self.zoom)

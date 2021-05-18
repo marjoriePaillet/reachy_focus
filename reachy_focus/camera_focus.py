@@ -14,6 +14,7 @@ from pynput import keyboard
 from sensor_msgs.msg._compressed_image import CompressedImage
 from reachy_msgs.srv import SetCameraFocusZoom, GetCameraFocusZoom
 from reachy_msgs.srv import Set2CamerasFocus
+from reachy_msgs.srv import SendRestartRequest
 
 import os
 import cv2 as cv
@@ -120,6 +121,8 @@ class CameraFocus(Node):
             self.listener_callback_right,
             10)
 
+        self.restart_srv = self.create_service(SendRestartRequest, 'send_restart_request', self.restart_callback)
+
         self.set_camera_focus_zoom_client = self.create_client(
             SetCameraFocusZoom,
             'set_camera_focus_zoom')
@@ -173,6 +176,29 @@ class CameraFocus(Node):
             msg: Ros CompressedImage message received from right camera publisher
         """
         self.img['right_image'] = msg
+
+    def restart_callback(self, request, response):
+
+        path = "/home/nuc2/reachy_ws/src/reachy_focus/images/restart"
+        cv.imwrite(os.path.join(path, "right_eye_") + str(self.k) + ".png",
+                    self.bridge.compressed_imgmsg_to_cv2(
+                        self.img["left_image"]))
+        cv.imwrite(os.path.join(path, "left_eye_") + str(self.k) + ".png",
+                    self.bridge.compressed_imgmsg_to_cv2(
+                        self.img["right_image"]))
+        self.k += 1
+        print("restart the sequence")
+        self.init['left_eye'] = True
+        self.init['right_eye'] = True
+        self.current_zoom['left_eye'] = -1
+        self.current_zoom['right_eye'] = -1
+        if self.start is False:
+            self.start = True
+
+        response.success = True
+        self.get_logger().info('Incoming restart request')
+
+        return response
 
     def send_request_set_focus_zoom(self, name, zoom, focus):
         """Send request through "set_camera_focus_zoom_client" client.
@@ -383,14 +409,22 @@ class CameraFocus(Node):
         Args:
             key: key press id
         """
-        if str(key) == "'r'":
-            print("restart the sequence")
-            self.init['left_eye'] = True
-            self.init['right_eye'] = True
-            self.current_zoom['left_eye'] = -1
-            self.current_zoom['right_eye'] = -1
-            if self.start is False:
-                self.start = True
+        # if str(key) == "'r'":
+        #     path = "/home/nuc2/reachy_ws/src/reachy_focus/images/restart"
+        #     cv.imwrite(os.path.join(path, "right_eye_") + str(self.k) + ".png",
+        #                self.bridge.compressed_imgmsg_to_cv2(
+        #                    self.img["left_image"]))
+        #     cv.imwrite(os.path.join(path, "left_eye_") + str(self.k) + ".png",
+        #                self.bridge.compressed_imgmsg_to_cv2(
+        #                    self.img["right_image"]))
+        #     self.k += 1
+        #     print("restart the sequence")
+        #     self.init['left_eye'] = True
+        #     self.init['right_eye'] = True
+        #     self.current_zoom['left_eye'] = -1
+        #     self.current_zoom['right_eye'] = -1
+        #     if self.start is False:
+        #         self.start = True
 
         if str(key) == "'s'":
             if self.start is True:
